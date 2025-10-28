@@ -25,7 +25,7 @@ def process_running_screenshots():
     """主处理流程"""
     # 初始化组件
     image_processor = ImageProcessor(SCREENSHOTS_DIR)
-    ai_analyzer = AIAnalyzer()
+    ai_analyzer = AIAnalyzer(use_paddle_ocr=True)
     excel_writer = ExcelWriter(OUTPUT_FILE)
     
     # 创建或加载Excel文件
@@ -44,6 +44,14 @@ def process_running_screenshots():
     for screenshot_path in screenshot_files:
         logging.info(f"处理文件: {screenshot_path}")
         
+        # 提取图片文件名（不含路径）
+        image_filename = os.path.basename(screenshot_path)
+        
+        # 检查是否为重复记录
+        if excel_writer.is_duplicate_record(image_filename):
+            logging.warning(f"发现重复记录，跳过: {image_filename}")
+            continue
+        
         # 预处理图像
         processed_image = image_processor.preprocess_image(screenshot_path)
         if not processed_image:
@@ -55,15 +63,7 @@ def process_running_screenshots():
         if not running_data:
             logging.error(f"AI分析失败: {screenshot_path}")
             continue
-        
-        # 检查是否为重复记录
-        if excel_writer.is_duplicate_record(running_data):
-            logging.warning(f"发现重复记录，跳过: {running_data.get('date')}")
-            continue
 
-        # 提取图片文件名（不含路径）
-        image_filename = os.path.basename(screenshot_path)
-        
         # 写入Excel
         if excel_writer.append_to_excel(running_data, image_filename):
             logging.info(f"成功添加记录: {running_data.get('date')} (来自 {image_filename})")

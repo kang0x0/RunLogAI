@@ -44,13 +44,13 @@ class ExcelWriter:
             print(f"写入Excel失败: {e}")
             return False
     
-    def is_duplicate_record(self, running_data):
-        """检查是否为重复记录"""
+    def is_duplicate_record(self, image_filename):
+        """检查是否为重复记录（基于文件名判断）"""
         try:
-            if os.path.exists(self.output_file):
+            if os.path.exists(self.output_file) and image_filename:
                 df = pd.read_excel(self.output_file)
-                # 检查相同日期的记录是否已存在
-                if running_data.get('date') in df['Date'].values:
+                # 检查相同文件名的记录是否已存在
+                if image_filename in df['Image File'].values:
                     return True
             return False
         except Exception as e:

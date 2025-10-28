@@ -4,15 +4,41 @@ import requests
 import re
 import time
 import logging
+import os
+import sys
+
+# 添加项目根目录到Python路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+sys.path.insert(0, project_root)
+
 from config.settings import SILICONFLOW_API_KEY, OCR_MODEL, CHAT_MODEL, OCR_PROMPT, ANALYSIS_PROMPT, JSON_FORMAT_EXAMPLE
 
+# 尝试导入PaddleOCR
+try:
+    from src.paddle_ocr import PaddleOCRWrapper
+    PADDLE_OCR_AVAILABLE = True
+except ImportError:
+    PADDLE_OCR_AVAILABLE = False
+    logging.warning("PaddleOCR 不可用，将使用API方式进行OCR")
+
 class AIAnalyzer:
-    def __init__(self):
+    def __init__(self, use_paddle_ocr=False):
         self.api_key = SILICONFLOW_API_KEY
         self.ocr_model = OCR_MODEL
         self.chat_model = CHAT_MODEL
         self.api_url = "https://api.siliconflow.cn/v1/chat/completions"
+        self.use_paddle_ocr = use_paddle_ocr and PADDLE_OCR_AVAILABLE
         
+        # 如果选择使用PaddleOCR且可用，则初始化PaddleOCR
+        if self.use_paddle_ocr:
+            self.paddle_ocr = PaddleOCRWrapper()
+            if not self.paddle_ocr.ocr_engine:
+                logging.warning("PaddleOCR 初始化失败，回退到API方式")
+                self.use_paddle_ocr = False
+        else:
+            self.paddle_ocr = None
+    
     def encode_image(self, image_path):
         """将图像编码为base64"""
         try:
@@ -26,6 +52,12 @@ class AIAnalyzer:
     
     def call_ocr_model(self, image_path):
         """调用OCR模型识别图片中的文字"""
+        # 如果配置使用PaddleOCR且可用，则优先使用PaddleOCR
+        if self.use_paddle_ocr and self.paddle_ocr:
+            logging.info("使用PaddleOCR进行文字识别")
+            return self.paddle_ocr.recognize_text(image_path)
+        
+        # 否则使用原有的API方式
         try:
             # 编码图像
             base64_image = self.encode_image(image_path)
